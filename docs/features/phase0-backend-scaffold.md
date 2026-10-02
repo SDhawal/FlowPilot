@@ -1,7 +1,7 @@
 # Phase 0 · Step 2 — Backend scaffold
 
 - **Status:** Draft — awaiting human approval
-- **Owner:** Muskan · **Implementer:** `dotnet-backend` agent · **Tests:** `test-engineer` agent
+- **Owner:** Dhawal · **Implementer:** `dotnet-backend` agent · **Tests:** `test-engineer` agent
 
 ## 1. Problem & acceptance criteria
 We need a production-shaped, empty backend that every later feature plugs into.

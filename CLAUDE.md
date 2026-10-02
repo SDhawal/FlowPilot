@@ -53,3 +53,4 @@ docs/features/  One spec per feature, written by the architect agent before codi
 - Timestamps are UTC (`DateTimeOffset` / ISO-8601). Due dates are date-only. "Today" uses the user's IANA timezone.
 - Prefer free / OSS libraries. Do NOT add packages with commercial licenses (e.g. FluentAssertions v8+, MediatR v13+, AutoMapper v15+). Ask before adding any new dependency.
 - Do not edit existing EF migrations, `.env*` files, or production config.
+- Do not add claude's signature in commits.
