@@ -1,0 +1,40 @@
+# Secrets
+.env
+.env.*
+!.env.example
+appsettings.Development.local.json
+appsettings.Production.json
+
+# Claude Code personal settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+*.trx
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+coverage/
+
+# Native builds
+mobile/ios/
+mobile/android/
+*.apk
+*.aab
+*.ipa
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

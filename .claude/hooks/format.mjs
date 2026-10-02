@@ -1,0 +1,28 @@
+// PostToolUse hook: auto-format the file Claude just edited. Never blocks (always exits 0).
+import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+
+const input = JSON.parse(readFileSync(0, "utf8") || "{}");
+const filePath = input?.tool_input?.file_path;
+if (!filePath || !existsSync(filePath)) process.exit(0);
+
+const root = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+const rel = path.relative(root, filePath).replaceAll("\\", "/");
+const run = (cmd, args, cwd = root) =>
+  spawnSync(cmd, args, { cwd, stdio: "ignore", shell: process.platform === "win32", timeout: 60_000 });
+
+const sln = path.join(root, "backend", "FlowPilot.sln");
+const mobile = path.join(root, "mobile");
+
+if (rel.endsWith(".cs") && existsSync(sln)) {
+  // whitespace-only formatting is fast and needs no build
+  run("dotnet", ["format", "whitespace", sln, "--include", rel]);
+} else if (/^mobile\/.+\.(ts|tsx|js|jsx|json)$/.test(rel) && existsSync(path.join(mobile, "node_modules"))) {
+  const inMobile = path.relative(mobile, filePath);
+  run("npx", ["--no-install", "prettier", "--write", inMobile], mobile);
+  if (/\.(ts|tsx|js|jsx)$/.test(rel)) run("npx", ["--no-install", "eslint", "--fix", inMobile], mobile);
+} else if (/\.(md|json|ya?ml)$/.test(rel) && existsSync(path.join(mobile, "node_modules"))) {
+  run("npx", ["--no-install", "prettier", "--write", filePath], mobile);
+}
+process.exit(0);
