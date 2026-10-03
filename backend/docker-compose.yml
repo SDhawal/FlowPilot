@@ -1,0 +1,21 @@
+# Local development database. Dev-only credentials; bound to localhost only.
+services:
+  db:
+    image: postgres:17
+    container_name: flowpilot-db
+    environment:
+      POSTGRES_DB: flowpilot
+      POSTGRES_USER: flowpilot
+      POSTGRES_PASSWORD: flowpilot_dev_only
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - flowpilot-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowpilot -d flowpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  flowpilot-db-data:
