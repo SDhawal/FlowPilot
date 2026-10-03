@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- Shared framework only for Microsoft.Extensions.DependencyInjection abstractions (no extra NuGet package). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FlowPilot.Domain\FlowPilot.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
