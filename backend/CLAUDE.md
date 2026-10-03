@@ -7,6 +7,7 @@ src/FlowPilot.Application     Use cases (feature folders), DTOs, validators, int
 src/FlowPilot.Infrastructure  EF Core DbContext + migrations, Gemini adapter, Identity, external services.
 src/FlowPilot.Api             Minimal API endpoint groups, auth, rate limiting, ProblemDetails, OpenAPI.
 tests/FlowPilot.UnitTests         xUnit, no I/O.
+tests/FlowPilot.ArchitectureTests NetArchTest.Rules; enforces layer dependencies (Domain -> nothing, Application -> Domain, Infrastructure !-> Api).
 tests/FlowPilot.IntegrationTests  xUnit + WebApplicationFactory + Testcontainers (Postgres). [Trait("Category","Integration")]
 ```
 Domain must not reference EF Core. Api must not contain business logic.

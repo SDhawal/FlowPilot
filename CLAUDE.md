@@ -3,7 +3,7 @@
 AI-powered task & project manager that turns messy goals into actionable plans.
 Portfolio project built to senior-engineer standards. Runs on **free tiers only**.
 
-## Stack (see docs/adr/0001-stack.md)
+## Stack (see docs/adr/0001-technology-stack.md)
 - **mobile/** — Expo + React Native + TypeScript, Expo Router. One codebase for iOS, Android, Web.
 - **backend/** — ASP.NET Core Web API (.NET LTS), EF Core, PostgreSQL (Neon), JWT auth (ASP.NET Core Identity).
 - **AI** — Google Gemini, called ONLY from the backend through `IAiProvider`. The app never calls Gemini.
