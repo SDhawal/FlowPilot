@@ -9,3 +9,5 @@ Dockerfile
 .dockerignore
 **/*.user
 **/.git
+**/appsettings.Development.json
+**/.env*
