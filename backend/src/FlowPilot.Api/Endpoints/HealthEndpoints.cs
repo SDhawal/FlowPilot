@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using static FlowPilot.Infrastructure.DependencyInjection;
 
 namespace FlowPilot.Api.Endpoints;
 
 public static class HealthEndpoints
 {
-    public const string ReadyTag = "ready";
-
     public static IEndpointRouteBuilder MapHealthEndpoints(this IEndpointRouteBuilder app)
     {
         // Liveness: process is up. Runs no checks.
