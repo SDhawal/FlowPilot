@@ -18,9 +18,9 @@ Auth/Identity, any domain entities, migrations, Gemini, rate limiting policies, 
 
 ## 3. Solution layout
 ```
+global.json                      # repo root: pin .NET 10 (LTS) SDK 10.0.x, rollForward: latestFeature (dotnet looks for it from the CWD, and all commands run from the root)
 backend/
 ├─ FlowPilot.sln                 # classic .sln (create with: dotnet new sln --format sln)
-├─ global.json                   # pin .NET 10 (LTS) SDK 10.0.x, rollForward: latestFeature
 ├─ Directory.Build.props         # Nullable, ImplicitUsings, TreatWarningsAsErrors, LangVersion latest, deterministic builds
 ├─ Directory.Packages.props      # Central Package Management — all versions live here
 ├─ .editorconfig                 # C# style; file-scoped namespaces; sealed suggestions
@@ -48,7 +48,7 @@ Project references (inward only): Api → Application, Infrastructure · Infrast
 - **Health:** `/health/live` (no checks; predicate excludes all) and `/health/ready` (DbContext check, tag "ready") via `AddHealthChecks().AddDbContextCheck<AppDbContext>(tags: ["ready"])`.
 - **DB:** EF Core + Npgsql provider. Connection string `ConnectionStrings:Default` from user-secrets locally / env var in prod. `appsettings.Development.json` may point at the docker-compose DB with dev-only creds.
   Startup must **not** require a reachable DB or a real connection string: build-time OpenAPI generation runs `Program.cs` during `dotnet build` (including CI with no secrets). Fail on a missing connection string only when the DB is first used, not in `AddInfrastructure`.
-- **CORS:** policy `"web"` with origins from `Cors:AllowedOrigins` config array.
+- **CORS:** policy `"web"` with origins from `Cors:AllowedOrigins` config array. Base `appsettings.json` is empty (`[]`); the Expo dev origin lives in `appsettings.Development.json`; production sets `Cors__AllowedOrigins__0=https://<pages-domain>`.
 - **Logging:** built-in logging; JSON console formatter outside Development.
 - **Test runner:** xUnit v3 with `xunit.runner.visualstudio` (VSTest mode) so `dotnet test --filter "Category!=Integration"` from CLAUDE.md keeps working. Do not opt into Microsoft Testing Platform mode.
   *Implementation note:* `xunit.v3` is pinned to **3.2.x**; 4.x drops VSTest support on .NET 10 ("Testing with VSTest target is no longer supported"). Revisit when moving to Microsoft Testing Platform.
@@ -66,7 +66,8 @@ Project references (inward only): Api → Application, Infrastructure · Infrast
 ## 6. Security
 - No secrets in any committed file. `docker-compose.yml` uses obvious dev-only credentials and binds to localhost.
 - Container runs as non-root (`USER app` from the official aspnet image).
-- No developer exception page: `UseExceptionHandler()` + ProblemDetails in every environment; exception details are included only in Development.
+- No exception details in any response, in any environment: `UseExceptionHandler()` + ProblemDetails returns a generic 500; details go to logs only.
+- `appsettings.Development.json` and `.env*` are excluded from the Docker image via `.dockerignore`.
 
 ## 7. Testing plan
 - **Architecture tests:** Domain depends on nothing (no other FlowPilot assembly, no EF Core, no ASP.NET Core); Application does not depend on Infrastructure, Api or ASP.NET Core; Infrastructure does not depend on Api.
