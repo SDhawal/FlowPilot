@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/.vs/
+**/TestResults/
+tests/
+openapi/
+docker-compose.yml
+Dockerfile
+.dockerignore
+**/*.user
+**/.git
+**/appsettings.Development.json
+**/.env*
