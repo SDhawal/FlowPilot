@@ -4,7 +4,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore layer (cached unless project files / package versions change)
-COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY Directory.Build.props Directory.Packages.props ./
 COPY src/FlowPilot.Domain/FlowPilot.Domain.csproj src/FlowPilot.Domain/
 COPY src/FlowPilot.Application/FlowPilot.Application.csproj src/FlowPilot.Application/
 COPY src/FlowPilot.Infrastructure/FlowPilot.Infrastructure.csproj src/FlowPilot.Infrastructure/
