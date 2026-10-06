@@ -46,6 +46,17 @@ public sealed class LayerDependencyTests
     }
 
     [Fact]
+    public void Application_does_not_depend_on_AspNetCore()
+    {
+        var result = Types.InAssembly(ApplicationAssembly)
+            .ShouldNot()
+            .HaveDependencyOn("Microsoft.AspNetCore")
+            .GetResult();
+
+        result.IsSuccessful.ShouldBeTrue(Failing(result));
+    }
+
+    [Fact]
     public void Infrastructure_does_not_depend_on_Api()
     {
         var result = Types.InAssembly(InfrastructureAssembly)
