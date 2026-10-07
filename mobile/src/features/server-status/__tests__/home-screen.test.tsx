@@ -2,12 +2,14 @@
 
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { AccessibilityInfo, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { checkReady, HealthCheckError } from "@/lib/api/health";
 import { createQueryClient } from "@/lib/query-client";
 
 import Home from "../../../../app/index";
+import { serverStatusKeys } from "../api/server-status-keys";
 import { SERVER_STATUS_POLICY } from "../api/use-server-status";
 
 jest.mock("@/lib/api/health", () => {
@@ -53,6 +55,20 @@ const neverSettles = () => new Promise<void>(() => {});
 
 /** Enough time for the retry loop to give up: the window plus one more (capped) delay. */
 const PAST_WINDOW = SERVER_STATUS_POLICY.wakeWindowMs + 10_000 + 1;
+
+/**
+ * Asserts the screen is still waking just before the window ends, then advances only the
+ * remainder (last retry delay included) and asserts it gave up. A longer window would fail.
+ * Call right after the cycle started (time 0 of the window).
+ */
+async function expectGivesUpOnlyAfterWindow() {
+  await advance(SERVER_STATUS_POLICY.wakeWindowMs - 2);
+  expect(screen.queryByText(UNREACHABLE)).toBeNull();
+  expect(screen.getByText(WAKING)).toBeTruthy();
+
+  await advance(10_000 + 2);
+  expect(screen.getByText(UNREACHABLE)).toBeTruthy();
+}
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -144,12 +160,7 @@ describe("server status screen", () => {
     await advance(0);
     expect(screen.getByText(WAKING)).toBeTruthy();
 
-    // Still inside the window: not given up yet.
-    await advance(SERVER_STATUS_POLICY.wakeWindowMs - 20_000);
-    expect(screen.queryByText(UNREACHABLE)).toBeNull();
-
-    await advance(PAST_WINDOW);
-    expect(screen.getByText(UNREACHABLE)).toBeTruthy();
+    await expectGivesUpOnlyAfterWindow();
     expect(screen.getByText("Check your connection and try again.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     expect(screen.queryByText(WAKING)).toBeNull();
@@ -199,15 +210,27 @@ describe("server status screen", () => {
     expect(screen.getByText(WAKING)).toBeTruthy();
 
     // A stale cycle start would give up almost immediately instead of waiting a full window.
-    await advance(SERVER_STATUS_POLICY.wakeWindowMs - 20_000);
+    await expectGivesUpOnlyAfterWindow();
+  });
+
+  it("starts a fresh wake window for a new cycle that is not triggered by Retry", async () => {
+    mockCheckReady.mockRejectedValue(notReady());
+    await renderHome();
+    await advance(PAST_WINDOW);
+    expect(screen.getByText(UNREACHABLE)).toBeTruthy();
+
+    // Not awaited: the returned promise settles only after the whole retry cycle.
+    await act(async () => {
+      void queryClient.invalidateQueries({ queryKey: serverStatusKeys.all });
+    });
+    await advance(0);
     expect(screen.queryByText(UNREACHABLE)).toBeNull();
     expect(screen.getByText(WAKING)).toBeTruthy();
 
-    await advance(PAST_WINDOW);
-    expect(screen.getByText(UNREACHABLE)).toBeTruthy();
+    await expectGivesUpOnlyAfterWindow();
   });
 
-  it("disables or hides Retry while the retried check is in flight", async () => {
+  it("hides Retry while the retried check is in flight", async () => {
     mockCheckReady.mockRejectedValue(notReady());
     await renderHome();
     await advance(PAST_WINDOW);
@@ -217,10 +240,7 @@ describe("server status screen", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Retry" }));
     await advance(0);
 
-    const retry = screen.queryByRole("button", { name: "Retry" });
-    if (retry) {
-      expect(retry.props.accessibilityState).toMatchObject({ busy: true, disabled: true });
-    }
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
     expect(screen.getByText(CHECKING)).toBeTruthy();
     expect(mockCheckReady).toHaveBeenCalledTimes(1);
   });
@@ -232,5 +252,42 @@ describe("server status screen", () => {
     await advance(0);
 
     expect(screen.getByRole("header", { name: CONNECTED })).toBeTruthy();
+  });
+
+  describe("screen reader announcements", () => {
+    let announce: jest.SpyInstance;
+
+    beforeEach(() => {
+      announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation();
+      // jest-expo already mocks this function, so calls from earlier tests would leak in.
+      announce.mockClear();
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it("announces status changes on iOS, but not the initial status", async () => {
+      jest.replaceProperty(Platform, "OS", "ios");
+      mockCheckReady.mockResolvedValue(undefined);
+
+      await renderHome();
+      expect(announce).not.toHaveBeenCalled();
+
+      await advance(0);
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith(CONNECTED);
+    });
+
+    it("leaves announcements to aria-live on other platforms", async () => {
+      jest.replaceProperty(Platform, "OS", "android");
+      mockCheckReady.mockResolvedValue(undefined);
+
+      await renderHome();
+      await advance(0);
+
+      expect(screen.getByText(CONNECTED)).toBeTruthy();
+      expect(announce).not.toHaveBeenCalled();
+    });
   });
 });
