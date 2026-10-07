@@ -49,7 +49,7 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "jest --passWithNoTests",
+    "test": "jest",
     "gen:api": "openapi-typescript ../backend/openapi/flowpilot.json -o src/lib/api/schema.d.ts"
   },
   "overrides": {
