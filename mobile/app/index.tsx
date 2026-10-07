@@ -1,9 +1,10 @@
-import { Text, View } from "react-native";
+import { Screen } from "@/ui/screen";
+import { Text } from "@/ui/text";
 
 export default function Home() {
   return (
-    <View>
-      <Text>FlowPilot</Text>
-    </View>
+    <Screen className="items-center justify-center">
+      <Text variant="title">FlowPilot</Text>
+    </Screen>
   );
 }
