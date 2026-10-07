@@ -6,6 +6,15 @@
 /** Minimum touch target in points (iOS HIG 44pt, Android 48dp is covered by padding). */
 export const MIN_TOUCH_TARGET = 44;
 
+/** Horizontal page gutter in points. Keep in sync with spacing.gutter in tailwind.config.js. */
+export const GUTTER = 20;
+
+/** Label colors (light, dark) per button variant, mirroring tailwind.config.js. */
+export const buttonLabelColors = {
+  primary: { light: "#ffffff", dark: "#0b0f19" },
+  secondary: { light: "#111827", dark: "#f9fafb" },
+} as const;
+
 export const textVariants = ["title", "body", "caption"] as const;
 export type TextVariant = (typeof textVariants)[number];
 
