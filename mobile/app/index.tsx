@@ -1,10 +1,13 @@
+import { useServerStatus } from "@/features/server-status/api/use-server-status";
+import { ServerStatusCard } from "@/features/server-status/components/server-status-card";
 import { Screen } from "@/ui/screen";
-import { Text } from "@/ui/text";
 
 export default function Home() {
+  const { status, retry, isRetrying } = useServerStatus();
+
   return (
     <Screen className="items-center justify-center">
-      <Text variant="title">FlowPilot</Text>
+      <ServerStatusCard status={status} onRetry={retry} isRetrying={isRetrying} />
     </Screen>
   );
 }
