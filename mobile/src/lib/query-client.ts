@@ -6,6 +6,8 @@ export function createQueryClient(): QueryClient {
     defaultOptions: {
       queries: {
         retry: 1,
+        // TODO: focus/online refetching only works on web until focusManager and onlineManager
+        // are wired to AppState and NetInfo (later feature).
         refetchOnWindowFocus: true,
       },
     },

@@ -1,4 +1,5 @@
-import { ActivityIndicator, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { AccessibilityInfo, ActivityIndicator, Platform, View } from "react-native";
 
 import { apiBaseUrl } from "@/lib/api/base-url";
 import { Button } from "@/ui/button";
@@ -9,7 +10,6 @@ import type { ServerStatus } from "../api/use-server-status";
 type ServerStatusCardProps = {
   status: ServerStatus;
   onRetry: () => void;
-  isRetrying: boolean;
 };
 
 const copy: Record<ServerStatus, { title: string; detail?: string }> = {
@@ -30,9 +30,19 @@ const indicatorLabel: Partial<Record<ServerStatus, string>> = {
   waking: "Waking up",
 };
 
-export function ServerStatusCard({ status, onRetry, isRetrying }: ServerStatusCardProps) {
+export function ServerStatusCard({ status, onRetry }: ServerStatusCardProps) {
   const { title, detail } = copy[status];
   const busyLabel = indicatorLabel[status];
+
+  // aria-live covers web and Android; iOS VoiceOver ignores it, so announce changes explicitly.
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(title);
+  }, [title]);
 
   return (
     <View className="w-full max-w-md items-center gap-3 rounded-card bg-surface p-6 dark:bg-surface-dark">
@@ -45,9 +55,7 @@ export function ServerStatusCard({ status, onRetry, isRetrying }: ServerStatusCa
           {detail}
         </Text>
       ) : null}
-      {status === "unreachable" ? (
-        <Button label="Retry" onPress={onRetry} busy={isRetrying} />
-      ) : null}
+      {status === "unreachable" ? <Button label="Retry" onPress={onRetry} /> : null}
       {__DEV__ ? <Text variant="caption">API: {apiBaseUrl}</Text> : null}
     </View>
   );

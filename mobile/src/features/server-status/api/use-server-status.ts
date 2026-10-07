@@ -20,9 +20,11 @@ export type ServerStatus = "checking" | "waking" | "connected" | "unreachable";
 export type UseServerStatusResult = {
   status: ServerStatus;
   retry: () => void;
-  isRetrying: boolean;
 };
 
+/**
+ * Cycle state lives in a ref per hook instance, so this hook assumes a single consumer for now.
+ */
 export function useServerStatus(): UseServerStatusResult {
   const cycleStartedAt = useRef<number | null>(null);
 
@@ -32,12 +34,19 @@ export function useServerStatus(): UseServerStatusResult {
       // The first attempt of a cycle starts the wake window; retries keep it.
       cycleStartedAt.current ??= Date.now();
       await checkReady({ signal, timeoutMs: SERVER_STATUS_POLICY.requestTimeoutMs });
+      // The cycle is over; the next one (refetch, invalidation) gets a fresh window.
+      cycleStartedAt.current = null;
       // TanStack Query rejects an undefined result, and checkReady resolves with nothing.
       return true;
     },
     // All failure kinds retry: a 503 means the API is up but the DB is still waking.
-    retry: () =>
-      Date.now() - (cycleStartedAt.current ?? Date.now()) < SERVER_STATUS_POLICY.wakeWindowMs,
+    retry: () => {
+      const inWindow =
+        Date.now() - (cycleStartedAt.current ?? Date.now()) < SERVER_STATUS_POLICY.wakeWindowMs;
+      // Giving up ends the cycle, so any later cycle starts its own window.
+      if (!inWindow) cycleStartedAt.current = null;
+      return inWindow;
+    },
     retryDelay: SERVER_STATUS_POLICY.retryDelay,
     // Offline devices must reach "unreachable" instead of pausing forever in "checking".
     networkMode: "always",
@@ -56,5 +65,5 @@ export function useServerStatus(): UseServerStatusResult {
   else if (query.isFetching) status = query.failureCount === 0 ? "checking" : "waking";
   else status = query.isError ? "unreachable" : "checking";
 
-  return { status, retry, isRetrying: query.isFetching };
+  return { status, retry };
 }
