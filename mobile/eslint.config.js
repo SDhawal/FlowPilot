@@ -3,5 +3,5 @@ const expoConfig = require("eslint-config-expo/flat");
 
 module.exports = defineConfig([
   expoConfig,
-  globalIgnores(["dist/*", ".expo/*", "src/lib/api/schema.d.ts"]),
+  globalIgnores(["dist/*", ".expo/*", "coverage/*", "src/lib/api/schema.d.ts"]),
 ]);
