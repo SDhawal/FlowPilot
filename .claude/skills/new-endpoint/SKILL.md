@@ -2,6 +2,7 @@
 name: new-endpoint
 description: Scaffold a new backend API endpoint (command/query, handler, validator, endpoint mapping, tests) following FlowPilot conventions. Use when adding or changing an API endpoint.
 ---
+
 # New endpoint: $ARGUMENTS
 
 1. Find the endpoint in the approved spec under `docs/features/`. If it is not specified there, stop and ask — do not invent a contract.

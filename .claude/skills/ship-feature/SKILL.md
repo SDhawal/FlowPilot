@@ -3,6 +3,7 @@ name: ship-feature
 description: Run the full FlowPilot feature workflow end to end - spec, backend, client generation, frontend, tests, review - pausing for human approval at each gate. Use when starting a feature from a GitHub issue.
 disable-model-invocation: true
 ---
+
 # Ship feature: $ARGUMENTS
 
 Follow these gates in order. **Stop and wait for the human at every ⏸.**

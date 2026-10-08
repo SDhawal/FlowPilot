@@ -1,6 +1,7 @@
 # Mobile — Expo (iOS, Android, Web)
 
 ## Structure
+
 ```
 app/                     Expo Router routes only (thin: compose feature components)
   (auth)/                login, register
@@ -12,6 +13,7 @@ src/ui/                  shared design-system components + theme tokens
 ```
 
 ## Conventions
+
 - TypeScript `strict`. No `any`; use `unknown` + narrowing.
 - **Server state = TanStack Query.** Query keys from a factory per feature (`taskKeys.list(filters)`).
   Mutations invalidate or optimistically update the relevant keys.
@@ -29,6 +31,7 @@ src/ui/                  shared design-system components + theme tokens
 - Secrets: none in the app. `EXPO_PUBLIC_*` env vars are public by definition.
 
 ## Testing
+
 - Jest + React Native Testing Library. Test behavior (what the user sees), not implementation.
 - Mock the network at the API-client boundary.
 - RNTL 14 is async: `await render(...)` / `await fireEvent...`. Wrap screens in `SafeAreaProvider` (with `initialMetrics`).

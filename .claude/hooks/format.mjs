@@ -30,8 +30,7 @@ const rootIgnore = path.join(root, ".prettierignore");
 
 if (rel.endsWith(".cs") && existsSync(sln)) {
   // whitespace-only formatting is fast and needs no build; EF migrations are generated, leave them alone
-  if (!/\/Migrations\//.test(rel))
-    run("dotnet", ["format", "whitespace", sln, "--include", rel]);
+  if (!/\/Migrations\//.test(rel)) run("dotnet", ["format", "whitespace", sln, "--include", rel]);
 } else if (/^mobile\/.+\.(ts|tsx|js|jsx|json|css)$/.test(rel) && hasPrettier) {
   // cwd = mobile/, so mobile/.prettierignore and mobile/.prettierrc apply
   const inMobile = path.relative(mobile, filePath);
@@ -42,14 +41,7 @@ if (rel.endsWith(".cs") && existsSync(sln)) {
   // config resolves from the file's location (root .prettierrc.json); generated files skipped by the root ignore
   run(
     "npx",
-    [
-      "--no-install",
-      "prettier",
-      "--write",
-      "--ignore-path",
-      rootIgnore,
-      filePath,
-    ],
+    ["--no-install", "prettier", "--write", "--ignore-path", rootIgnore, filePath],
     mobile,
   );
 }

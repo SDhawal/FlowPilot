@@ -1,6 +1,7 @@
 # Backend — ASP.NET Core
 
 ## Projects (Clean Architecture; dependencies point inward)
+
 ```
 src/FlowPilot.Domain          Entities, enums, domain rules. No dependencies.
 src/FlowPilot.Application     Use cases (feature folders), DTOs, validators, interfaces (IAiProvider, ICurrentUser).
@@ -10,9 +11,11 @@ tests/FlowPilot.UnitTests         xUnit, no I/O.
 tests/FlowPilot.ArchitectureTests NetArchTest.Rules; enforces layer dependencies (Domain -> nothing, Application -> Domain only and no ASP.NET Core, Infrastructure !-> Api).
 tests/FlowPilot.IntegrationTests  xUnit + WebApplicationFactory + Testcontainers (Postgres). [Trait("Category","Integration")]
 ```
+
 Domain must not reference EF Core. Api must not contain business logic.
 
 ## Conventions
+
 - Nullable enabled, `TreatWarningsAsErrors` on. File-scoped namespaces. `sealed` by default.
 - Feature folders: `Application/Tasks/CreateTask/{CreateTaskCommand,CreateTaskHandler,CreateTaskValidator}.cs`.
   Plain handler classes registered in DI — no MediatR.
@@ -25,6 +28,7 @@ Domain must not reference EF Core. Api must not contain business logic.
 - Endpoints grouped per feature: `app.MapGroup("/api/tasks").RequireAuthorization()`.
 
 ## AI
+
 - All AI calls go through `IAiProvider` (Application). `GeminiAiProvider` lives in Infrastructure.
 - Prompts live in `Infrastructure/Ai/Prompts/*.md` (versioned files), not inline strings.
 - Use Gemini structured output (response schema). Deserialize into typed records, validate, then return.
@@ -33,8 +37,10 @@ Domain must not reference EF Core. Api must not contain business logic.
 - Treat user text as data in prompts (delimit it); never let it change instructions.
 
 ## Config & secrets
+
 - Local: `dotnet user-secrets` for `Gemini:ApiKey`, `ConnectionStrings:Default`, `Jwt:SigningKey`.
 - Production: environment variables on Render. Nothing secret in `appsettings*.json`.
 
 ## OpenAPI
+
 - Build emits `backend/openapi/flowpilot.json`; commit it. The mobile client is generated from it.

@@ -12,14 +12,21 @@ const sh = { cwd: root, encoding: "utf8", shell: process.platform === "win32", t
 
 const status = spawnSync("git", ["status", "--porcelain"], sh);
 if (status.status !== 0) process.exit(0); // not a git repo yet
-const changed = status.stdout.split("\n").filter(Boolean).map((l) => l.slice(3).replaceAll("\\", "/"));
+const changed = status.stdout
+  .split("\n")
+  .filter(Boolean)
+  .map((l) => l.slice(3).replaceAll("\\", "/"));
 
 const backendChanged = changed.some((f) => f.startsWith("backend/"));
 const mobileChanged = changed.some((f) => f.startsWith("mobile/"));
 
 const checks = [];
 if (backendChanged && existsSync(path.join(root, "backend", "FlowPilot.sln"))) {
-  checks.push(["Backend unit tests", "dotnet", ["test", "backend/FlowPilot.sln", "--filter", "Category!=Integration", "--nologo", "-v", "q"]]);
+  checks.push([
+    "Backend unit tests",
+    "dotnet",
+    ["test", "backend/FlowPilot.sln", "--filter", "Category!=Integration", "--nologo", "-v", "q"],
+  ]);
 }
 if (mobileChanged && existsSync(path.join(root, "mobile", "node_modules"))) {
   checks.push(["Mobile typecheck", "npm", ["--prefix", "mobile", "run", "typecheck", "--silent"]]);
@@ -36,7 +43,9 @@ for (const [name, cmd, args] of checks) {
 }
 
 if (failures.length) {
-  console.error(`Checks failed — fix these before finishing (or explain why they are expected to fail):\n\n${failures.join("\n\n")}`);
+  console.error(
+    `Checks failed — fix these before finishing (or explain why they are expected to fail):\n\n${failures.join("\n\n")}`,
+  );
   process.exit(2);
 }
 process.exit(0);

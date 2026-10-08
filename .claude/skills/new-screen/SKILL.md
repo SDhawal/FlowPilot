@@ -2,6 +2,7 @@
 name: new-screen
 description: Scaffold a new Expo Router screen with its feature folder, query hooks, form schema and tests following FlowPilot conventions. Use when adding a screen or major UI component.
 ---
+
 # New screen: $ARGUMENTS
 
 1. Find the screen in the approved spec under `docs/features/`. If it is not there, stop and ask.
