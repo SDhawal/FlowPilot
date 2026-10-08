@@ -2,6 +2,7 @@
 name: gen-client
 description: Regenerate the typed TypeScript API client in mobile/ from the backend OpenAPI document and check for breaking changes. Use after any backend API change.
 ---
+
 # Regenerate API client
 
 1. `dotnet build backend/FlowPilot.sln` (emits `backend/openapi/flowpilot.json`).
