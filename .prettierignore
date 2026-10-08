@@ -1,0 +1,15 @@
+# Generated files: owned by their tools, never reformatted.
+backend/openapi/
+**/package-lock.json
+mobile/src/lib/api/schema.d.ts
+**/Migrations/
+
+# Build output and dependencies
+**/bin/
+**/obj/
+**/TestResults/
+**/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/coverage/
