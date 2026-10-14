@@ -1,0 +1,75 @@
+# CI: runs every check on a fresh machine for each PR to main and each push to main.
+# Spec: docs/features/phase0-ci.md
+#
+# Branch protection requires the checks by JOB ID: backend, mobile, docker.
+# Renaming a job (or adding `name:` to it) means updating the ruleset in the same change,
+# otherwise every PR waits forever for a check that no longer exists.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: the token can only read the repo. Every unlisted scope is "none".
+permissions:
+  contents: read
+
+# A newer push to the same PR cancels the stale run. Runs on main are never cancelled,
+# so every commit on main gets a status.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET (SDK from global.json)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore backend/FlowPilot.sln
+
+      # TreatWarningsAsErrors (Directory.Build.props) makes any warning fail this step.
+      # The build also regenerates backend/openapi/flowpilot.json.
+      - name: Build
+        run: dotnet build backend/FlowPilot.sln --no-restore
+
+      - name: OpenAPI drift check (commit backend/openapi/flowpilot.json if this fails)
+        run: |
+          if [ -n "$(git status --porcelain backend/openapi/)" ]; then
+            git status --porcelain backend/openapi/
+            git diff backend/openapi/
+            echo "::error::backend/openapi/ is out of date. Run 'dotnet build backend/FlowPilot.sln' and commit the result."
+            exit 1
+          fi
+
+      - name: Unit + architecture tests
+        run: dotnet test backend/FlowPilot.sln --no-build --filter "Category!=Integration"
+
+      # Testcontainers starts a throwaway postgres:17 on the runner's built-in Docker.
+      - name: Integration tests
+        run: dotnet test backend/FlowPilot.sln --no-build --filter "Category=Integration"
