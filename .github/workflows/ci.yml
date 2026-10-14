@@ -135,3 +135,16 @@ jobs:
           node mobile/node_modules/prettier/bin/prettier.cjs --check
           --ignore-path .gitignore --ignore-path .prettierignore
           "**/*.{md,json,yml,yaml,css,mjs}" "!mobile/**"
+
+  # Proves the image Render will build still builds. No registry login, nothing is pushed.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build -f backend/Dockerfile -t flowpilot-api:ci backend
