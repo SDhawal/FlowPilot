@@ -439,3 +439,23 @@ These override anything below and in §4, §5 and §7:
 - **Linux is case-sensitive.** Windows isn't. An import with the wrong letter case passes locally and fails in CI (Metro / `tsc` / `docker build`). This is a feature of CI, not a bug, but expect it to be the most likely "works on my machine" failure.
 - **Commit type `ci:`** vs `chore(ci):`. `CLAUDE.md` lists the common types. `ci:` is standard Conventional Commits. Human preference?
 - **Dependabot for the `docker` ecosystem** (`mcr.microsoft.com/dotnet/sdk:10.0` / `aspnet:10.0`, and `postgres:17` in compose). These are floating major tags that already pick up patches on rebuild, so they're left out for now. Add them with the deployment phase if digest pinning is wanted.
+
+## 12. Implementation notes (2026-10-14)
+
+- **Action pins** (latest releases, SHAs read from the official repos with `git ls-remote`; inputs checked against each `action.yml` at the pinned commit; all run on `node24`):
+
+  | Action                 | Version | SHA                                        |
+  | ---------------------- | ------- | ------------------------------------------ |
+  | `actions/checkout`     | v7.0.1  | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
+  | `actions/setup-dotnet` | v6.0.0  | `a98b56852c35b8e3190ac28c8c2271da59106c68` |
+  | `actions/setup-node`   | v7.1.0  | `949feb2413d6458794dcd2491c4babbbce0c15c1` |
+  | `actions/cache`        | v6.1.0  | `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` |
+
+- **Repo-wide Prettier step passes both ignore files** (`--ignore-path .gitignore --ignore-path .prettierignore`). An explicit `--ignore-path` replaces Prettier's default (which reads `.gitignore`), so git-ignored local files such as `.claude/settings.local.json` were being checked. The glob does reach dot-directories (`.github/`, `.claude/`). The README command matches.
+- **Mobile client drift** checks `git status --porcelain src/lib/api/` (the whole generated-client folder), in line with the hardened backend check (§11).
+- **No `style:` commit needed** (§10 commit 5): the repo-wide check was clean.
+- **Local verification:** every step of all three jobs was run locally with the workflow's exact commands. Backend: build 0 warnings, drift clean, 6 unit+architecture and 5 integration tests pass. Mobile: `npm ci`, drift clean, typecheck, lint, format, 34 tests, `expo export --platform web`, repo-wide Prettier all pass. Docker: image builds.
+- **Failure path proven:** a committed stale `flowpilot.json` (`"version": "stale-test"`) on a scratch branch was detected after `dotnet build` (diff `stale-test` → `1.0.0`). The scratch branch was deleted.
+- **Schema validation:** `ci.yml` and `dependabot.yml` validate against the SchemaStore `github-workflow` and `dependabot-2.0` JSON schemas.
+- **Dependabot groups** use `patterns: ["*"]` plus `update-types: [minor, patch]`.
+- **Not verified yet:** the first real run on GitHub (§9.3), cache hits, Dependabot's first run with Central Package Management, and branch protection (§6).
