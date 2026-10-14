@@ -37,7 +37,7 @@ docs/features/  One spec per feature, written by the architect agent before codi
 
 1. Every feature starts as a GitHub issue with acceptance criteria.
 2. Use **plan mode** + the `architect` agent → `docs/features/<feature>.md`. A human approves it before code.
-3. Branch `feat/<short-name>`. Small commits, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`).
+3. Branch `feat/<short-name>`. Small commits, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `style:`, `ci:`).
 4. Backend first → `/gen-client` → frontend.
 5. `test-engineer` adds tests; `code-reviewer` reviews the diff; fix BLOCKERs before opening a PR.
 6. Never push or merge without the human. Never commit to `main` directly. A PR merges only when CI (`.github/workflows/ci.yml`) is green: required checks `backend`, `mobile`, `docker`.

@@ -79,6 +79,8 @@ updates:
       - dependency-name: "xunit.v3"
         update-types: ["version-update:semver-major"]
       # Stay on the .NET LTS line: runtime-tied majors arrive with a deliberate .NET upgrade.
+      # Side effect (accepted): this also holds back majors of Microsoft.* packages that aren't
+      # runtime-tied (e.g. Microsoft.NET.Test.Sdk); bump those by hand when wanted.
       - dependency-name: "Microsoft.*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"

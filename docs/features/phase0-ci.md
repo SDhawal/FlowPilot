@@ -417,7 +417,7 @@ These override anything below and in §4, §5 and §7:
 - **Dependabot majors:** ignore **semver-major** updates for `xunit.v3`, `Microsoft.*` and `Npgsql.EntityFrameworkCore.PostgreSQL` (to stay on the .NET LTS line), `jest`, `@types/jest`, `@types/react`, `typescript`, `nativewind`, `tailwindcss`, `@testing-library/react-native` and `test-renderer`. Minor and patch updates still flow. Major upgrades of these are deliberate tasks.
 - **Branch protection:** "Require branches to be up to date before merging" is **off**.
 - **OpenAPI drift check:** hardened to `git status --porcelain backend/openapi/`, which fails on any output. It also catches new untracked generated files. The mobile client drift check uses the same form.
-- **Concurrency:** `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`. Only PR runs are cancelled, so every `main` commit gets a status.
+- **Concurrency:** goal: only PR runs are cancelled, so every `main` commit gets a status. _Implemented (after code review)_ as `group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}` with `cancel-in-progress: true`. `cancel-in-progress: false` alone isn't enough: GitHub keeps only one pending run per group and cancels older pending runs regardless, so back-to-back merges to `main` would skip the middle commit. A unique group per non-PR run avoids that. Drift checks also guard with `test -f` so a moved generated file can't make them pass silently.
 - **Commit type:** `ci:`.
 - **Dependabot `docker` ecosystem:** deferred to the deployment phase.
 
