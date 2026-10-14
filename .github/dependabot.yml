@@ -1,0 +1,85 @@
+# Dependabot: weekly version-update PRs. Spec: docs/features/phase0-ci.md §7 and §11.
+# Every Dependabot PR runs the full CI and needs a human merge (no auto-merge).
+# Minor + patch bumps are grouped into one PR per ecosystem; each major bump gets its own PR.
+version: 2
+updates:
+  # Bumps the pinned SHAs (and their # vX.Y.Z comments) in .github/workflows/*.yml.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # Expo-managed: these move together via `npx expo install --fix` during a deliberate
+      # Expo SDK upgrade (ADR-0002), never one at a time.
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "jest-expo"
+      - dependency-name: "eslint-config-expo"
+      # Tied to the Expo SDK / ADR-0002: majors are deliberate upgrade tasks; minor + patch still flow.
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "nativewind"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@testing-library/react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "test-renderer"
+        update-types: ["version-update:semver-major"]
+
+  # Updates backend/Directory.Packages.props (Central Package Management).
+  - package-ecosystem: nuget
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      nuget-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # xunit.v3 4.x drops VSTest support on .NET 10 (backend spec §4).
+      - dependency-name: "xunit.v3"
+        update-types: ["version-update:semver-major"]
+      # Stay on the .NET LTS line: runtime-tied majors arrive with a deliberate .NET upgrade.
+      - dependency-name: "Microsoft.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"
+        update-types: ["version-update:semver-major"]
