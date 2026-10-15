@@ -1,0 +1,155 @@
+# CI: runs every check on a fresh machine for each PR to main and each push to main.
+# Spec: docs/features/phase0-ci.md
+#
+# Branch protection requires the checks by JOB ID: backend, mobile, docker.
+# Renaming a job (or adding `name:` to it) means updating the ruleset in the same change,
+# otherwise every PR waits forever for a check that no longer exists.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: the token can only read the repo. Every unlisted scope is "none".
+permissions:
+  contents: read
+
+# PRs share one group per PR, so a newer push cancels the stale run.
+# Every other run (push to main, manual) gets its own group (run_id): GitHub keeps only one
+# pending run per group and cancels older pending ones even with cancel-in-progress: false,
+# so a shared group would silently skip commits on main.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET (SDK from global.json)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore backend/FlowPilot.sln
+
+      # TreatWarningsAsErrors (Directory.Build.props) makes any warning fail this step.
+      # The build also regenerates backend/openapi/flowpilot.json.
+      - name: Build
+        run: dotnet build backend/FlowPilot.sln --no-restore
+
+      - name: OpenAPI drift check (commit backend/openapi/flowpilot.json if this fails)
+        run: |
+          # Guard: a moved/renamed file would make the porcelain check pass silently.
+          test -f backend/openapi/flowpilot.json || { echo "::error::backend/openapi/flowpilot.json not found"; exit 1; }
+          if [ -n "$(git status --porcelain backend/openapi/)" ]; then
+            git status --porcelain backend/openapi/
+            git diff backend/openapi/
+            echo "::error::backend/openapi/ is out of date. Run 'dotnet build backend/FlowPilot.sln' and commit the result."
+            exit 1
+          fi
+
+      - name: Unit + architecture tests
+        run: dotnet test backend/FlowPilot.sln --no-build --filter "Category!=Integration"
+
+      # Testcontainers starts a throwaway postgres:17 on the runner's built-in Docker.
+      - name: Integration tests
+        run: dotnet test backend/FlowPilot.sln --no-build --filter "Category=Integration"
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_NO_TELEMETRY: 1
+    # Applies to `run:` steps only; paths in action `with:` inputs stay relative to the repo root.
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      # npm ci installs exactly package-lock.json and fails if it disagrees with package.json.
+      - name: Install
+        run: npm ci
+
+      - name: Client drift check (run 'npm run gen:api' and commit if this fails)
+        run: |
+          npm run gen:api
+          test -f src/lib/api/schema.d.ts || { echo "::error::mobile/src/lib/api/schema.d.ts not found"; exit 1; }
+          if [ -n "$(git status --porcelain src/lib/api/)" ]; then
+            git status --porcelain src/lib/api/
+            git diff src/lib/api/
+            echo "::error::mobile/src/lib/api is out of date with backend/openapi/flowpilot.json. Run 'npm --prefix mobile run gen:api' and commit the result."
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check (mobile)
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm test -- --ci
+
+      # Builds the static web bundle Cloudflare Pages will host (output discarded with the VM).
+      - name: Web build check
+        run: npx expo export --platform web
+
+      # Mirrors .claude/hooks/format.mjs (root .prettierrc.json for everything outside mobile/).
+      # Keep the extension list in sync with the hook. Both ignore files are passed because an
+      # explicit --ignore-path replaces Prettier's default of reading .gitignore.
+      - name: Format check (rest of repo)
+        working-directory: .
+        run: >-
+          node mobile/node_modules/prettier/bin/prettier.cjs --check
+          --ignore-path .gitignore --ignore-path .prettierignore
+          "**/*.{md,json,yml,yaml,css,mjs}" "!mobile/**"
+
+  # Proves the image Render will build still builds. No registry login, nothing is pushed.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build -f backend/Dockerfile -t flowpilot-api:ci backend

@@ -1,5 +1,7 @@
 # FlowPilot AI
 
+[![CI](https://github.com/SDhawal/FlowPilot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SDhawal/FlowPilot/actions/workflows/ci.yml)
+
 AI-powered task & project manager that turns messy goals into clear, actionable plans.
 iOS · Android · Web — Expo React Native + ASP.NET Core + PostgreSQL + Gemini.
 
@@ -66,3 +68,27 @@ npm --prefix mobile run lint            # zero warnings allowed
 npm --prefix mobile test
 npm --prefix mobile run gen:api         # regenerate the typed client from backend/openapi/flowpilot.json
 ```
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every PR to `main`, every push to `main`, and on demand. Three jobs run in parallel on a fresh Ubuntu VM, and a branch-protection ruleset on `main` is configured to require all three to pass before merging. Spec: [`docs/features/phase0-ci.md`](docs/features/phase0-ci.md).
+
+| Job       | Checks                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------ |
+| `backend` | build (0 warnings) · OpenAPI drift · unit + architecture tests · integration tests (Testcontainers Postgres)       |
+| `mobile`  | `npm ci` · client drift · typecheck · lint · format · tests · web build (`expo export`) · repo-wide Prettier check |
+| `docker`  | API image builds (never pushed)                                                                                    |
+
+Reproduce any failing step locally with the same command, from the repo root:
+
+```bash
+dotnet build backend/FlowPilot.sln && git status --porcelain backend/openapi/   # OpenAPI drift: must print nothing
+npm --prefix mobile run gen:api && git status --porcelain mobile/src/lib/api/   # client drift: must print nothing
+npm --prefix mobile run typecheck && npm --prefix mobile run lint && npm --prefix mobile run format:check
+npm --prefix mobile test -- --ci
+(cd mobile && npx expo export --platform web)                                   # web build check
+node mobile/node_modules/prettier/bin/prettier.cjs --check --ignore-path .gitignore --ignore-path .prettierignore "**/*.{md,json,yml,yaml,css,mjs}" "!mobile/**"
+docker build -f backend/Dockerfile -t flowpilot-api:ci backend
+```
+
+**A drift check failed?** A generated file is out of date: run the command shown in the step's error and commit the result. **Dependabot** ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly grouped update PRs for GitHub Actions, npm and NuGet. They run the same CI and are merged by a human. Expo-managed packages are upgraded only together, during an Expo SDK upgrade.
