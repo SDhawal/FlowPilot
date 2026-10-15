@@ -43,6 +43,10 @@ updates:
       - dependency-name: "jest-expo"
       - dependency-name: "eslint-config-expo"
       # Tied to the Expo SDK / ADR-0002: majors are deliberate upgrade tasks; minor + patch still flow.
+      # eslint: eslint-config-expo bundles eslint-plugin-react and eslint-plugin-import, which only
+      # support ESLint <= 9; ESLint 10 crashed the Lint step (PR #7). Upgrade with eslint-config-expo.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "jest"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/jest"
