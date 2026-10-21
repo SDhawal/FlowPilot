@@ -350,12 +350,12 @@ Secrets are passed through `env:` and referenced as `"$VAR"`, never interpolated
 
 ### 8.1 Secrets inventory
 
-| Secret                                         | Lives in                                                    | Used by             | Never in                 | Rotation (runbook)                                                                               |
-| ---------------------------------------------- | ----------------------------------------------------------- | ------------------- | ------------------------ | ------------------------------------------------------------------------------------------------ |
-| Neon role password (migrations)                | GitHub env secret `NEON_MIGRATIONS_CONNECTION_STRING`       | `deploy` job step 7 | git, logs, Render, Pages | reset password in Neon → update both the GitHub secret and Render's `ConnectionStrings__Default` |
-| Neon role password (runtime)                   | Render env var `ConnectionStrings__Default` (`sync: false`) | the API container   | git, logs, GitHub, Pages | same as above (same role today)                                                                  |
-| Render deploy hook URL (contains key)          | GitHub env secret `RENDER_DEPLOY_HOOK_URL`                  | `deploy` job step 8 | git, logs                | regenerate the hook in Render → update the GitHub secret                                         |
-| _(future)_ `Jwt__SigningKey`, `Gemini__ApiKey` | Render env vars (`sync: false`)                             | the API             | git, logs, GitHub        | arrives with auth / AI features                                                                  |
+| Secret                                         | Lives in                                                    | Used by             | Never in                 | Rotation (runbook)                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------- | ------------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `flowpilot_migrator` password                  | GitHub env secret `NEON_MIGRATIONS_CONNECTION_STRING`       | `deploy` job step 7 | git, logs, Render, Pages | `ALTER ROLE` in Neon → update the GitHub secret                                         |
+| `flowpilot_app` password                       | Render env var `ConnectionStrings__Default` (`sync: false`) | the API container   | git, logs, GitHub, Pages | `ALTER ROLE` in Neon → update Render's `ConnectionStrings__Default` in the same sitting |
+| Render deploy hook URL (contains key)          | GitHub env secret `RENDER_DEPLOY_HOOK_URL`                  | `deploy` job step 8 | git, logs                | regenerate the hook in Render → update the GitHub secret                                |
+| _(future)_ `Jwt__SigningKey`, `Gemini__ApiKey` | Render env vars (`sync: false`)                             | the API             | git, logs, GitHub        | arrives with auth / AI features                                                         |
 
 Not secrets: `API_BASE_URL`, `EXPO_PUBLIC_API_URL`, the Pages project name, CORS origins, region, the commit SHA.
 
@@ -369,7 +369,7 @@ The human creates every account and pastes every secret; Claude never handles cr
 ### 8.3 Least privilege and accepted risks
 
 - Workflow token `contents: read` everywhere, `persist-credentials: false`, only official SHA-pinned actions, secrets via `env:` (no `${{ }}` interpolation in scripts).
-- **Single Neon role** for migrations and runtime (the project owner role). Least privilege would be a DDL role for migrations and a DML-only role for the app. Accepted for the skeleton; recommended hardening **before auth stores real user data** (§11).
+- **Two Neon roles** (decided in §11): `flowpilot_migrator` creates and owns the tables (pipeline only); `flowpilot_app` has DML only (the API). A compromised API can't change or drop the schema.
 - **Previews hit production.** Today the API has no data and no auth, so there's nothing to reach. With auth, a preview of a malicious fork PR on an allowed origin is a real risk; see §11 on fork previews.
 - Forwarded-headers trust relies on the container being reachable **only** through Render's proxy (§4).
 - No user data and no Gemini calls in this step. Logs are JSON console logs on Render (existing behaviour); no connection strings are logged (Npgsql doesn't log passwords; the existing config error message names the setting, not its value).
@@ -531,6 +531,8 @@ Where the implementation diverged from the sections above, and why. These notes 
 - **EF startup project is `FlowPilot.Infrastructure`, not `FlowPilot.Api`.** `Microsoft.EntityFrameworkCore.Design` is `PrivateAssets=all` in Infrastructure, so Api never gets it, and `dotnet ef … -s FlowPilot.Api` fails ("startup project doesn't reference Microsoft.EntityFrameworkCore.Design"). Infrastructure already has `DesignTimeDbContextFactory`, so it works as its own startup project with no package change. That also means the bundle no longer builds the Api (no build-time OpenAPI generation). The root `CLAUDE.md` "Add migration" command had the same bug and is fixed too.
 - **Empty migration set → working bundle: verified.** Against docker-compose Postgres, run 1 created `__EFMigrationsHistory`, run 2 was a no-op; both exit 0. The bundle takes EF's exclusive migration lock, which confirms the direct-endpoint requirement.
 - **CORS policy reads configuration from DI.** As predicted in §4, `WebApplicationFactory` configuration wasn't visible to `builder.Configuration` before `Build()` (even the exact origin was rejected in tests). The policy is now built in `AddOptions<CorsOptions>().Configure<IConfiguration>(…)`.
+- **Deploy ordering guard (from code review).** `deploy-production` prevents overlap but doesn't order runs: CI for an older commit can finish after a newer one (each `main` push has its own CI group) and would roll production back while staying green. The job's first step compares `$GITHUB_SHA` with `main`'s current head (`git ls-remote`, public repo) and skips every other step if `main` has moved on. Trade-off: if the newer commit's CI fails, neither commit deploys until a fix is merged or the job is re-run.
+- **Neon roles SQL:** `ALTER DEFAULT PRIVILEGES` runs _as_ `flowpilot_migrator` (no `FOR ROLE`). Since Postgres 16 the owner can't change another role's defaults. Roles are created in SQL, not the dashboard, because Neon makes dashboard roles members of `neon_superuser`. The runbook includes verification queries.
 - **`KnownIPNetworks`** (not the obsolete `KnownNetworks`) builds without warnings on .NET 10.
 - **Render Blueprint:** `autoDeploy` is deprecated; `render.yaml` uses `autoDeployTrigger: "off"` (quoted, because YAML 1.1 reads a bare `off` as `false`) and `branch: main`.
 - **Resolved decisions applied:** `deploy` also runs on `workflow_dispatch` on `main`; `/health/version` sends `Cache-Control: no-store`; separate `flowpilot_migrator` / `flowpilot_app` Neon roles (SQL in the runbook).

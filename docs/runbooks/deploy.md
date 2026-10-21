@@ -26,10 +26,10 @@ Do these in order. Each step needs something from the one before it. You (the hu
 
 1. Sign up at neon.tech with GitHub. **Skip any billing prompt.**
 2. Create a project `flowpilot`, Postgres 17, region **AWS US East (N. Virginia) `aws-us-east-1`** (must match Render's `virginia`). Database name `flowpilot`.
-3. Open the **SQL Editor** (as the owner role) and create the two roles:
+3. Open the **SQL Editor**, database `flowpilot`, **as the owner role**, and create the two roles. Use SQL, not the dashboard's **Roles** page: Neon makes dashboard-created roles members of `neon_superuser`, which would give the app role DDL rights.
 
    ```sql
-   -- Owns the schema. Used only by the CI deploy job to run migrations.
+   -- Creates and owns all tables. Used only by the CI deploy job to run migrations.
    CREATE ROLE flowpilot_migrator LOGIN PASSWORD '<generate-a-long-random-password>';
    -- Used by the running API. Can read and write rows, but can't change the schema.
    CREATE ROLE flowpilot_app LOGIN PASSWORD '<a-different-long-random-password>';
@@ -37,18 +37,35 @@ Do these in order. Each step needs something from the one before it. You (the hu
    GRANT CONNECT ON DATABASE flowpilot TO flowpilot_migrator, flowpilot_app;
    GRANT USAGE, CREATE ON SCHEMA public TO flowpilot_migrator;
    GRANT USAGE ON SCHEMA public TO flowpilot_app;
+   ```
 
+4. Switch the SQL Editor's role to **`flowpilot_migrator`** and run this. It has to run _as_ the migrator: since Postgres 16 the owner role can't change another role's default privileges.
+
+   ```sql
    -- Every table/sequence the migrator creates from now on is usable by the app (DML only).
-   ALTER DEFAULT PRIVILEGES FOR ROLE flowpilot_migrator IN SCHEMA public
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public
      GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO flowpilot_app;
-   ALTER DEFAULT PRIVILEGES FOR ROLE flowpilot_migrator IN SCHEMA public
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public
      GRANT USAGE, SELECT ON SEQUENCES TO flowpilot_app;
    ```
 
-   If Neon refuses `CREATE ROLE` in SQL, create the roles under **Roles** in the dashboard instead, then run the `GRANT`/`ALTER DEFAULT PRIVILEGES` lines.
+   If the editor can't switch roles, run the same two statements from `psql` connected with the migrator's connection string (steps 6–7).
 
-4. Get the **direct** host: **Connect** → turn **Connection pooling off** → copy the host (it does **not** contain `-pooler`). Both connection strings use the direct endpoint.
-5. Turn the dashboard's URL into Npgsql's **key=value** format. Npgsql can't parse the `postgresql://…` URL:
+5. Check it worked (any role):
+
+   ```sql
+   -- Expect two rows owned by flowpilot_migrator: objtype r (tables) and S (sequences), both granting flowpilot_app.
+   SELECT pg_get_userbyid(defaclrole) AS owner, defaclobjtype, defaclacl FROM pg_default_acl;
+   -- Expect no rows: neither role may be a member of neon_superuser.
+   SELECT r.rolname FROM pg_auth_members m
+     JOIN pg_roles r ON r.oid = m.member JOIN pg_roles g ON g.oid = m.roleid
+    WHERE g.rolname = 'neon_superuser' AND r.rolname IN ('flowpilot_migrator', 'flowpilot_app');
+   ```
+
+   If the second query returns a role, run `REVOKE neon_superuser FROM <role>;` as the owner.
+
+6. Get the **direct** host: **Connect** → turn **Connection pooling off** → copy the host (it does **not** contain `-pooler`). Both connection strings use the direct endpoint.
+7. Turn the dashboard's URL into Npgsql's **key=value** format. Npgsql can't parse the `postgresql://…` URL:
 
    ```
    Host=<direct-host>;Database=flowpilot;Username=flowpilot_migrator;Password=<migrator-password>;SSL Mode=Require
@@ -86,7 +103,7 @@ Do these in order. Each step needs something from the one before it. You (the hu
 5. Render may do one initial deploy right away. That's harmless: no migrations exist yet.
 6. In the service: **Settings**
    - check **Auto-Deploy** shows **Off** and **Health Check Path** is `/health/live`;
-   - check the branch is `main` (switch it if the Blueprint was created from a feature branch);
+   - check the branch is `main` (switch it if the Blueprint was created from a feature branch). After the merge, also point the **Blueprint's** sync branch at `main` (Blueprints → your Blueprint → Settings), or later `render.yaml` changes won't sync;
    - copy the **Deploy Hook** URL (it's a secret: anyone with it can trigger deploys).
 7. Note the service URL, e.g. `https://flowpilot-api.onrender.com`.
 
@@ -137,11 +154,11 @@ Do these in order. Each step needs something from the one before it. You (the hu
 
 ## 4. Rotating secrets
 
-| Secret                        | Rotate                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `flowpilot_migrator` password | Neon: `ALTER ROLE flowpilot_migrator PASSWORD '…';` → update GitHub secret `NEON_MIGRATIONS_CONNECTION_STRING`            |
-| `flowpilot_app` password      | Neon: `ALTER ROLE flowpilot_app PASSWORD '…';` → update Render `ConnectionStrings__Default` (Render restarts the service) |
-| Render deploy hook            | Render → Settings → Deploy Hook → **Regenerate** → update GitHub secret `RENDER_DEPLOY_HOOK_URL`                          |
+| Secret                        | Rotate                                                                                                                                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flowpilot_migrator` password | Neon: `ALTER ROLE flowpilot_migrator PASSWORD '…';` → update GitHub secret `NEON_MIGRATIONS_CONNECTION_STRING`                                                                                                    |
+| `flowpilot_app` password      | Neon: `ALTER ROLE flowpilot_app PASSWORD '…';` → update Render `ConnectionStrings__Default` right away (Render restarts the service). The API can't reach the DB between the two steps, so do both in one sitting |
+| Render deploy hook            | Render → Settings → Deploy Hook → **Regenerate** → update GitHub secret `RENDER_DEPLOY_HOOK_URL`                                                                                                                  |
 
 After rotating, run **CI → Run workflow** on `main` to prove the pipeline still works. Never paste a secret into an issue, PR, commit or log.
 
