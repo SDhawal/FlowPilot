@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace FlowPilot.IntegrationTests;
 
 [Trait("Category", "Integration")]
@@ -45,6 +47,42 @@ public sealed class CorsTests
 
         AllowedOrigin(get).ShouldBeNull();
         AllowedOrigin(preflight).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Allowed_preflight_for_an_authorized_request_succeeds()
+    {
+        await using var factory = new ApiFactory(UnreachableConnectionString, PagesOrigins);
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/health/live");
+        request.Headers.Add("Origin", "https://abc123.flowpilot.pages.dev");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+        request.Headers.Add("Access-Control-Request-Headers", "authorization,content-type");
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        AllowedOrigin(response).ShouldBe("https://abc123.flowpilot.pages.dev");
+        response.Headers.Contains("Access-Control-Allow-Methods").ShouldBeTrue();
+        string.Join(",", response.Headers.GetValues("Access-Control-Allow-Headers"))
+            .ShouldContain("authorization", Case.Insensitive);
+    }
+
+    [Fact]
+    public async Task Rejected_preflight_grants_no_cors_permissions()
+    {
+        await using var factory = new ApiFactory(UnreachableConnectionString, PagesOrigins);
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/health/live");
+        request.Headers.Add("Origin", "https://evil.example");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+        request.Headers.Add("Access-Control-Request-Headers", "authorization");
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        AllowedOrigin(response).ShouldBeNull();
+        response.Headers.Contains("Access-Control-Allow-Methods").ShouldBeFalse();
+        response.Headers.Contains("Access-Control-Allow-Headers").ShouldBeFalse();
     }
 
     [Fact]
