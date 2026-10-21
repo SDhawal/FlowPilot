@@ -1,6 +1,7 @@
 using FlowPilot.Api.Endpoints;
 using FlowPilot.Application;
 using FlowPilot.Infrastructure;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,13 +30,21 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-builder.Services.AddCors(options =>
+// "https://*.<project>.pages.dev" entries match Cloudflare Pages preview subdomains. Only our
+// Pages project can publish under that suffix; never configure a bare "*.pages.dev".
+// Origins are read from the final IConfiguration in DI (not builder.Configuration), so
+// configuration added by hosts and test factories after this line is honoured.
+builder.Services.AddCors();
+builder.Services.AddOptions<CorsOptions>().Configure<IConfiguration>((options, configuration) =>
     options.AddPolicy("web", policy =>
     {
+        var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
         if (allowedOrigins.Length > 0)
         {
-            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+            policy.WithOrigins(allowedOrigins)
+                .SetIsOriginAllowedToAllowWildcardSubdomains()
+                .AllowAnyHeader()
+                .AllowAnyMethod();
         }
     }));
 
