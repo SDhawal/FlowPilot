@@ -4,5 +4,46 @@
     "title": "FlowPilot.Api | v1",
     "version": "1.0.0"
   },
-  "paths": { }
+  "paths": {
+    "/health/version": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "GetVersion",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "VersionResponse": {
+        "required": [
+          "commit"
+        ],
+        "type": "object",
+        "properties": {
+          "commit": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health"
+    }
+  ]
 }
