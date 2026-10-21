@@ -172,7 +172,8 @@ jobs:
       name: production
       url: ${{ vars.API_BASE_URL }}/health/version
     # Deploys never overlap and a running one is never killed halfway. GitHub keeps only the newest
-    # pending deploy, which is what we want: its migration bundle contains every older migration.
+    # pending deploy. Groups don't order runs, though: the "Skip if main moved on" step stops an older
+    # commit whose CI finished last from rolling production back.
     concurrency:
       group: deploy-production
       cancel-in-progress: false
@@ -183,17 +184,32 @@ jobs:
     env:
       API_BASE_URL: ${{ vars.API_BASE_URL }}
     steps:
+      # Each push to main gets its own CI run, so CI for an older commit can finish after a newer one.
+      # Only the commit main points at right now may deploy; the run for that commit deploys it.
+      # Trade-off: if the newer commit's CI fails, neither deploys (fix forward or re-run).
+      - name: Skip if main moved on
+        id: head
+        run: |
+          head=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY" refs/heads/main | cut -f1)
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::main is at $head, newer than $GITHUB_SHA; that commit's run deploys it."
+          fi
+
       - name: Checkout
+        if: steps.head.outputs.stale != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up .NET (SDK from global.json)
+        if: steps.head.outputs.stale != 'true'
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
       - name: Cache NuGet packages
+        if: steps.head.outputs.stale != 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
@@ -201,6 +217,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Check deploy configuration
+        if: steps.head.outputs.stale != 'true'
         env:
           NEON_MIGRATIONS_CONNECTION_STRING: ${{ secrets.NEON_MIGRATIONS_CONNECTION_STRING }}
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
@@ -212,15 +229,21 @@ jobs:
               missing=1
             fi
           done
+          if [ "${API_BASE_URL%/}" != "$API_BASE_URL" ]; then
+            echo "::error::API_BASE_URL must not end with '/'."
+            missing=1
+          fi
           exit "$missing"
 
       - name: Restore tools
+        if: steps.head.outputs.stale != 'true'
         run: dotnet tool restore
 
       # One self-contained executable that applies only the migrations Neon doesn't have yet.
       # Infrastructure is its own startup project: it has the design-time factory and the EF Design
       # package (PrivateAssets, so the Api doesn't get it).
       - name: Build migration bundle
+        if: steps.head.outputs.stale != 'true'
         run: >-
           dotnet ef migrations bundle
           -p backend/src/FlowPilot.Infrastructure -s backend/src/FlowPilot.Infrastructure
@@ -230,6 +253,7 @@ jobs:
       # Runs before the deploy, so every migration must work with the version currently live
       # (expand/contract).
       - name: Apply migrations (Neon)
+        if: steps.head.outputs.stale != 'true'
         env:
           NEON_MIGRATIONS_CONNECTION_STRING: ${{ secrets.NEON_MIGRATIONS_CONNECTION_STRING }}
         run: ./efbundle --connection "$NEON_MIGRATIONS_CONNECTION_STRING"
@@ -237,6 +261,7 @@ jobs:
       # The hook URL already carries its key as a query parameter, hence "&ref=". ref pins the build to
       # exactly the commit CI tested. Output is discarded so nothing derived from the URL is logged.
       - name: Trigger Render deploy
+        if: steps.head.outputs.stale != 'true'
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: curl -fsS -X POST -o /dev/null "$RENDER_DEPLOY_HOOK_URL&ref=$GITHUB_SHA"
@@ -244,6 +269,7 @@ jobs:
       # A healthy /health/live could still be the OLD version (Render keeps it when a deploy fails).
       # Only the commit reported by the running app proves the new code is live.
       - name: Verify deployed version
+        if: steps.head.outputs.stale != 'true'
         run: |
           deadline=$((SECONDS + 900))
           seen=""
@@ -263,7 +289,10 @@ jobs:
           exit 1
 
       # New code is live; now prove it can reach Neon with the runtime connection string.
+      # The instance is already awake, so 20 s per attempt is plenty and the worst case stays well
+      # inside timeout-minutes (a real failure shows curl's error, not a job timeout).
       - name: Verify readiness
+        if: steps.head.outputs.stale != 'true'
         run: >-
-          curl -fsS --max-time 90 --retry 5 --retry-delay 10 --retry-all-errors
+          curl -fsS --max-time 20 --retry 5 --retry-delay 10 --retry-all-errors
           -o /dev/null "$API_BASE_URL/health/ready"
