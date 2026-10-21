@@ -86,6 +86,18 @@ public sealed class CorsTests
     }
 
     [Fact]
+    public async Task Development_allows_the_local_expo_web_origin()
+    {
+        // Origin comes from appsettings.Development.json, read through the DI-configured CORS policy.
+        await using var factory = new ApiFactory(UnreachableConnectionString, environment: "Development");
+        using var client = factory.CreateClient();
+
+        using var get = await SendAsync(client, HttpMethod.Get, "http://localhost:8081");
+
+        AllowedOrigin(get).ShouldBe("http://localhost:8081");
+    }
+
+    [Fact]
     public async Task No_configured_origins_allow_nothing()
     {
         await using var factory = new ApiFactory(UnreachableConnectionString);
