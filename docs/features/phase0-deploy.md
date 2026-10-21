@@ -522,3 +522,17 @@ These override anything below and in earlier sections:
 - **Web ahead of API** (§4): accepted, mitigated by the backward-compatibility rule; revisit trigger in ADR-0003.
 - **Previews call the production API** (no staging). Acceptable with no data and no auth; revisit with auth.
 - **Free tiers change.** Everything is containerized and env-configured (ADR-0001), and the runbook documents every setting, so moving hosts stays a config exercise.
+
+## 12. Implementation notes (2026-10-21)
+
+Where the implementation diverged from the sections above, and why. These notes take precedence.
+
+- **Web build fails via a pre-build check, not at static render.** `expo export` (SDK 57) **swallows** errors thrown while statically rendering routes: even a `throw` at the top of `app/index.tsx` exported with exit 0. So `base-url.ts` throwing can't stop a misconfigured build on its own. Added `mobile/scripts/require-env.mjs` (no dependencies) and the `export:web` npm script (`node scripts/require-env.mjs EXPO_PUBLIC_API_URL && expo export --platform web`). The Pages build command and CI's `Web build check` both use `npm run export:web`. The runtime throw in `resolveApiBaseUrl` stays as a second guard (native release builds, any other export path).
+- **EF startup project is `FlowPilot.Infrastructure`, not `FlowPilot.Api`.** `Microsoft.EntityFrameworkCore.Design` is `PrivateAssets=all` in Infrastructure, so Api never gets it, and `dotnet ef … -s FlowPilot.Api` fails ("startup project doesn't reference Microsoft.EntityFrameworkCore.Design"). Infrastructure already has `DesignTimeDbContextFactory`, so it works as its own startup project with no package change. That also means the bundle no longer builds the Api (no build-time OpenAPI generation). The root `CLAUDE.md` "Add migration" command had the same bug and is fixed too.
+- **Empty migration set → working bundle: verified.** Against docker-compose Postgres, run 1 created `__EFMigrationsHistory`, run 2 was a no-op; both exit 0. The bundle takes EF's exclusive migration lock, which confirms the direct-endpoint requirement.
+- **CORS policy reads configuration from DI.** As predicted in §4, `WebApplicationFactory` configuration wasn't visible to `builder.Configuration` before `Build()` (even the exact origin was rejected in tests). The policy is now built in `AddOptions<CorsOptions>().Configure<IConfiguration>(…)`.
+- **`KnownIPNetworks`** (not the obsolete `KnownNetworks`) builds without warnings on .NET 10.
+- **Render Blueprint:** `autoDeploy` is deprecated; `render.yaml` uses `autoDeployTrigger: "off"` (quoted, because YAML 1.1 reads a bare `off` as `false`) and `branch: main`.
+- **Resolved decisions applied:** `deploy` also runs on `workflow_dispatch` on `main`; `/health/version` sends `Cache-Control: no-store`; separate `flowpilot_migrator` / `flowpilot_app` Neon roles (SQL in the runbook).
+- **Not done:** `mobile/.env.example` wasn't touched (project rule: don't edit `.env*` files). It still describes the variable for local overrides only, which remains correct.
+- **Still unverified until real accounts exist:** Docker on Render Free, `ref` honoured by the hook, `RENDER_GIT_COMMIT` at runtime, the Pages project name (`flowpilot` is assumed in `render.yaml` and README links), and fork-PR previews.
