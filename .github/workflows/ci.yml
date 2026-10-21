@@ -218,10 +218,12 @@ jobs:
         run: dotnet tool restore
 
       # One self-contained executable that applies only the migrations Neon doesn't have yet.
+      # Infrastructure is its own startup project: it has the design-time factory and the EF Design
+      # package (PrivateAssets, so the Api doesn't get it).
       - name: Build migration bundle
         run: >-
           dotnet ef migrations bundle
-          -p backend/src/FlowPilot.Infrastructure -s backend/src/FlowPilot.Api
+          -p backend/src/FlowPilot.Infrastructure -s backend/src/FlowPilot.Infrastructure
           -o efbundle --self-contained -r linux-x64
 
       # Neon's DIRECT endpoint: EF needs session-level locks that PgBouncer's transaction pooling breaks.
