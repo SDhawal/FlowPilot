@@ -39,22 +39,27 @@ Do these in order. Each step needs something from the one before it. You (the hu
    GRANT USAGE ON SCHEMA public TO flowpilot_app;
    ```
 
-4. Switch the SQL Editor's role to **`flowpilot_migrator`** and run this. It has to run _as_ the migrator: since Postgres 16 the owner role can't change another role's default privileges.
+4. Still as the owner, run this block in one go. The defaults have to be set _as_ the migrator: since Postgres 16 the owner role can't change another role's default privileges, and it can't `SET ROLE` to a role it created until it grants itself that right. `INHERIT FALSE` keeps the owner from silently gaining the migrator's rights.
 
    ```sql
+   GRANT flowpilot_migrator TO CURRENT_USER WITH INHERIT FALSE, SET TRUE;
+
+   SET ROLE flowpilot_migrator;
    -- Every table/sequence the migrator creates from now on is usable by the app (DML only).
    ALTER DEFAULT PRIVILEGES IN SCHEMA public
      GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO flowpilot_app;
    ALTER DEFAULT PRIVILEGES IN SCHEMA public
      GRANT USAGE, SELECT ON SEQUENCES TO flowpilot_app;
+   RESET ROLE;
    ```
 
-   If the editor can't switch roles, run the same two statements from `psql` connected with the migrator's connection string (steps 6–7).
+   Neon names the owner role after the database (not `neondb_owner`), which is why the grant uses `CURRENT_USER`.
 
 5. Check it worked (any role):
 
    ```sql
-   -- Expect two rows owned by flowpilot_migrator: objtype r (tables) and S (sequences), both granting flowpilot_app.
+   -- Expect two rows owned by flowpilot_migrator: r = {flowpilot_app=arwd/...} (tables), S = {flowpilot_app=rU/...}
+   -- (sequences). Two more rows owned by cloud_admin are Neon's own defaults; ignore them.
    SELECT pg_get_userbyid(defaclrole) AS owner, defaclobjtype, defaclacl FROM pg_default_acl;
    -- Expect no rows: neither role may be a member of neon_superuser.
    SELECT r.rolname FROM pg_auth_members m
