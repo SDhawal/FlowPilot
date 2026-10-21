@@ -21,8 +21,11 @@ src/ui/                  shared design-system components + theme tokens
 - Forms: React Hook Form + zod resolver; zod schemas live in `features/<f>/schemas`.
 - API calls only through the generated client in `src/lib/api`. Never `fetch` the API directly in components.
   The one exception is `src/lib/api/health.ts` (health checks are not in OpenAPI); it stays inside `src/lib/api`.
-- API base URL: `src/lib/api/base-url.ts` (`EXPO_PUBLIC_API_URL`, else per-platform localhost default). Reference
-  `process.env.EXPO_PUBLIC_API_URL` literally — Expo inlines it at bundle time.
+- API base URL: `src/lib/api/base-url.ts` (`EXPO_PUBLIC_API_URL`, else per-platform localhost default in
+  development; production builds throw without it). Reference `process.env.EXPO_PUBLIC_API_URL` literally — Expo
+  inlines it at bundle time.
+- Web production build: `npm run export:web` (Cloudflare Pages and CI). It checks `EXPO_PUBLIC_API_URL` first,
+  because `expo export` swallows errors thrown during static rendering.
 - Styling: NativeWind (Tailwind) `className`; tokens in `tailwind.config.js` + `src/ui/tokens.ts` (ADR-0002).
 - Every screen handles loading, empty, error, and "server waking up" (cold start) states.
 - Must work on iOS, Android **and web**. Avoid native-only APIs without a web fallback (`Platform.OS` guard).

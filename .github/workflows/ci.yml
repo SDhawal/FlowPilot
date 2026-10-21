@@ -128,12 +128,12 @@ jobs:
         run: npm test -- --ci
 
       # Builds the static web bundle Cloudflare Pages will host (output discarded with the VM).
-      # Production exports require EXPO_PUBLIC_API_URL; .invalid is a reserved TLD (RFC 2606)
-      # that never resolves, so this placeholder can't reach anything.
+      # Same script Cloudflare Pages runs. It requires EXPO_PUBLIC_API_URL; .invalid is a reserved
+      # TLD (RFC 2606) that never resolves, so this placeholder can't reach anything.
       - name: Web build check
         env:
           EXPO_PUBLIC_API_URL: https://api.example.invalid
-        run: npx expo export --platform web
+        run: npm run export:web
 
       # Mirrors .claude/hooks/format.mjs (root .prettierrc.json for everything outside mobile/).
       # Keep the extension list in sync with the hook. Both ignore files are passed because an
