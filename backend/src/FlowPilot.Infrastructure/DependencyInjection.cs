@@ -25,7 +25,18 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString);
         });
 
-        services.AddHealthChecks().AddDbContextCheck<AppDbContext>(tags: [ReadyTag]);
+        // The default test (CanConnectAsync) swallows the exception, which leaves an unexplained "Unhealthy" in the
+        // logs. Opening the connection lets the exception propagate: the health check service logs it (Npgsql
+        // messages name the cause, e.g. "28P01: password authentication failed", never the password), while the
+        // HTTP response stays a bare "Unhealthy".
+        services.AddHealthChecks().AddDbContextCheck<AppDbContext>(
+            tags: [ReadyTag],
+            customTestQuery: async (context, cancellationToken) =>
+            {
+                await context.Database.OpenConnectionAsync(cancellationToken);
+                await context.Database.CloseConnectionAsync();
+                return true;
+            });
 
         return services;
     }

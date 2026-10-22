@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Npgsql;
 
 namespace FlowPilot.IntegrationTests;
 
@@ -41,6 +42,21 @@ public sealed class HealthEndpointTests(PostgresFixture postgres) : IClassFixtur
         var response = await client.GetAsync("/health/ready", TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+    }
+
+    [Fact]
+    public async Task Ready_returns_503_without_details_when_authentication_fails()
+    {
+        var wrongPassword = new NpgsqlConnectionStringBuilder(postgres.ConnectionString) { Password = "wrong" };
+        await using var factory = new ApiFactory(wrongPassword.ConnectionString);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/health/ready", TestContext.Current.CancellationToken);
+
+        // The cause is logged server-side; the public response must not explain it.
+        response.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        body.ShouldBe("Unhealthy");
     }
 
     [Fact]
