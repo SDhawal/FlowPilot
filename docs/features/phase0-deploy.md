@@ -538,3 +538,12 @@ Where the implementation diverged from the sections above, and why. These notes 
 - **Resolved decisions applied:** `deploy` also runs on `workflow_dispatch` on `main`; `/health/version` sends `Cache-Control: no-store`; separate `flowpilot_migrator` / `flowpilot_app` Neon roles (SQL in the runbook).
 - **Not done:** `mobile/.env.example` wasn't touched (project rule: don't edit `.env*` files). It still describes the variable for local overrides only, which remains correct.
 - **Still unverified until real accounts exist:** Docker on Render Free, `ref` honoured by the hook, `RENDER_GIT_COMMIT` at runtime, the Pages project name (`flowpilot` is assumed in `render.yaml` and README links), and fork-PR previews.
+
+### Verified during account setup (2026-10-22)
+
+- **Docker on Render Free: works.** The Blueprint created `flowpilot-api` (Docker, Free, Virginia); URL `https://flowpilot-api-9e2u.onrender.com` (Render added a suffix).
+- **`RENDER_GIT_COMMIT` is set at runtime** for Docker services: `/health/version` returned the deployed SHA.
+- **`branch: main` in `render.yaml` applies at creation**, even when the Blueprint is created from `feat/deploy`. The first deploy built `main`.
+- **Neon names the owner role after the database**; `GRANT flowpilot_migrator TO CURRENT_USER WITH INHERIT FALSE, SET TRUE` is required before `SET ROLE` (runbook updated).
+- **The `libgssapi_krb5.so.2` log lines are harmless.** Npgsql falls back; the slim image works against local Postgres and Neon.
+- **Readiness hid its failure cause.** EF's default `CanConnectAsync` check swallows exceptions (`message '(null)'`). The readiness check now opens the connection itself, so the exception (e.g. `28P01`) is logged; the public response stays `Unhealthy`. This found a password mismatch in Render's `ConnectionStrings__Default` in one deploy.

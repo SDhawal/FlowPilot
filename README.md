@@ -7,7 +7,7 @@ iOS · Android · Web — Expo React Native + ASP.NET Core + PostgreSQL + Gemini
 
 > 🚧 Work in progress. Architecture decisions live in [`docs/adr`](docs/adr), feature specs in [`docs/features`](docs/features).
 
-**Live:** [web app](https://flowpilot.pages.dev) · [API version](https://flowpilot-api.onrender.com/health/version) (free tier: the first request after 15 min idle takes ~1 min while the server wakes up)
+**Live:** [web app](https://flowpilot.pages.dev) · [API version](https://flowpilot-api-9e2u.onrender.com/health/version) (free tier: the first request after 15 min idle takes ~1 min while the server wakes up)
 
 ## Repo layout
 

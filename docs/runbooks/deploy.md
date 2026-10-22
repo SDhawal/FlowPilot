@@ -110,7 +110,8 @@ Do these in order. Each step needs something from the one before it. You (the hu
    - check **Auto-Deploy** shows **Off** and **Health Check Path** is `/health/live`;
    - check the branch is `main` (switch it if the Blueprint was created from a feature branch). After the merge, also point the **Blueprint's** sync branch at `main` (Blueprints → your Blueprint → Settings), or later `render.yaml` changes won't sync;
    - copy the **Deploy Hook** URL (it's a secret: anyone with it can trigger deploys).
-7. Note the service URL, e.g. `https://flowpilot-api.onrender.com`.
+7. Note the service URL. Render usually adds a suffix, e.g. `https://flowpilot-api-9e2u.onrender.com` (ours).
+8. Check the API before going further: `/health/version` should return a commit SHA, `/health/ready` should return `Healthy`. If readiness is `503`, Render's logs show the exact cause (e.g. `28P01: password authentication failed`). Test the password independently with `docker run --rm -it postgres:17 psql "host=<host> dbname=flowpilot user=flowpilot_app sslmode=require"`, which prompts for it, then re-paste the **whole** value into Render.
 
 ### 1.4 Wire them together
 
