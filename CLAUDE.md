@@ -17,21 +17,26 @@ backend/    .NET solution (Api, Application, Domain, Infrastructure, Tests) — 
 mobile/     Expo app — has its own CLAUDE.md
 docs/adr/   Architecture Decision Records (numbered, immutable once Accepted)
 docs/features/  One spec per feature, written by the architect agent before coding
+docs/runbooks/  Operational how-tos (deploy setup, secret rotation, rollback)
+render.yaml     Render Blueprint for the production API
 .claude/    agents, skills, hooks, settings
 ```
 
 ## Commands
 
-| Task                             | Command                                                                                                |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Backend build                    | `dotnet build backend/FlowPilot.sln`                                                                   |
-| Backend unit tests               | `dotnet test backend/FlowPilot.sln --filter "Category!=Integration"`                                   |
-| Backend all tests (needs Docker) | `dotnet test backend/FlowPilot.sln`                                                                    |
-| Run API                          | `dotnet run --project backend/src/FlowPilot.Api`                                                       |
-| Add migration                    | `dotnet ef migrations add <Name> -p backend/src/FlowPilot.Infrastructure -s backend/src/FlowPilot.Api` |
-| App dev server                   | `npm --prefix mobile run start`                                                                        |
-| App checks                       | `npm --prefix mobile run typecheck` · `npm --prefix mobile run lint` · `npm --prefix mobile test`      |
-| Regenerate API client            | `npm --prefix mobile run gen:api` (reads `backend/openapi/flowpilot.json`)                             |
+| Task                             | Command                                                                                                                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend build                    | `dotnet build backend/FlowPilot.sln`                                                                                                                                                         |
+| Backend unit tests               | `dotnet test backend/FlowPilot.sln --filter "Category!=Integration"`                                                                                                                         |
+| Backend all tests (needs Docker) | `dotnet test backend/FlowPilot.sln`                                                                                                                                                          |
+| Run API                          | `dotnet run --project backend/src/FlowPilot.Api`                                                                                                                                             |
+| Restore tools (dotnet-ef)        | `dotnet tool restore` (version pinned in `.config/dotnet-tools.json`)                                                                                                                        |
+| Add migration                    | `dotnet ef migrations add <Name> -p backend/src/FlowPilot.Infrastructure -s backend/src/FlowPilot.Infrastructure`                                                                            |
+| Build migration bundle           | `dotnet ef migrations bundle -p backend/src/FlowPilot.Infrastructure -s backend/src/FlowPilot.Infrastructure -o efbundle --self-contained -r linux-x64` (CI does this; `-r win-x64` locally) |
+| Web production build             | `npm --prefix mobile run export:web` (needs `EXPO_PUBLIC_API_URL`)                                                                                                                           |
+| App dev server                   | `npm --prefix mobile run start`                                                                                                                                                              |
+| App checks                       | `npm --prefix mobile run typecheck` · `npm --prefix mobile run lint` · `npm --prefix mobile test`                                                                                            |
+| Regenerate API client            | `npm --prefix mobile run gen:api` (reads `backend/openapi/flowpilot.json`)                                                                                                                   |
 
 ## How we work
 

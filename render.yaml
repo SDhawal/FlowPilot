@@ -1,0 +1,32 @@
+# Render Blueprint: infrastructure as code for the production API (one free Docker web service).
+# Spec: docs/features/phase0-deploy.md §7.1 · Setup: docs/runbooks/deploy.md
+# No secret values here. Secrets use `sync: false`: Render asks for them once, at Blueprint creation.
+services:
+  - type: web
+    name: flowpilot-api
+    runtime: docker
+    plan: free
+    # Must match the Neon project's region (aws-us-east-1): every query pays the round trip.
+    region: virginia
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Liveness, not readiness: a short Neon outage must not make Render restart a healthy API.
+    healthCheckPath: /health/live
+    # Only the CI deploy job deploys (via the deploy hook), after it has applied migrations.
+    # Quoted: unquoted `off` is a boolean in YAML 1.1.
+    autoDeployTrigger: "off"
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # Port Render routes to; matches ASPNETCORE_HTTP_PORTS in the image.
+      - key: PORT
+        value: "8080"
+      # Neon DIRECT endpoint, Npgsql key=value format, role flowpilot_app (DML only).
+      - key: ConnectionStrings__Default
+        sync: false
+      # Production web origin, then every Pages preview/branch subdomain of OUR project only.
+      - key: Cors__AllowedOrigins__0
+        value: https://flowpilot-64c.pages.dev
+      - key: Cors__AllowedOrigins__1
+        value: https://*.flowpilot-64c.pages.dev

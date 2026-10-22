@@ -4,15 +4,23 @@ using Microsoft.Extensions.Configuration;
 
 namespace FlowPilot.IntegrationTests;
 
-public sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>
+public sealed class ApiFactory(
+    string connectionString,
+    IReadOnlyDictionary<string, string?>? settings = null,
+    string environment = "Testing") : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(environment);
         builder.ConfigureAppConfiguration((_, config) =>
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            var values = new Dictionary<string, string?> { ["ConnectionStrings:Default"] = connectionString };
+            foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
             {
-                ["ConnectionStrings:Default"] = connectionString,
-            }));
+                values[key] = value;
+            }
+
+            config.AddInMemoryCollection(values);
+        });
     }
 }

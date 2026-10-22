@@ -7,6 +7,8 @@ iOS · Android · Web — Expo React Native + ASP.NET Core + PostgreSQL + Gemini
 
 > 🚧 Work in progress. Architecture decisions live in [`docs/adr`](docs/adr), feature specs in [`docs/features`](docs/features).
 
+**Live:** [web app](https://flowpilot-64c.pages.dev) · [API version](https://flowpilot-api-9e2u.onrender.com/health/version) (free tier: the first request after 15 min idle takes ~1 min while the server wakes up)
+
 ## Repo layout
 
 - `mobile/` — Expo app (iOS, Android, Web)
@@ -78,6 +80,7 @@ npm --prefix mobile run gen:api         # regenerate the typed client from backe
 | `backend` | build (0 warnings) · OpenAPI drift · unit + architecture tests · integration tests (Testcontainers Postgres)       |
 | `mobile`  | `npm ci` · client drift · typecheck · lint · format · tests · web build (`expo export`) · repo-wide Prettier check |
 | `docker`  | API image builds (never pushed)                                                                                    |
+| `deploy`  | `main` only, after the three above: see [Deployment](#deployment)                                                  |
 
 Reproduce any failing step locally with the same command, from the repo root:
 
@@ -86,9 +89,25 @@ dotnet build backend/FlowPilot.sln && git status --porcelain backend/openapi/   
 npm --prefix mobile run gen:api && git status --porcelain mobile/src/lib/api/   # client drift: must print nothing
 npm --prefix mobile run typecheck && npm --prefix mobile run lint && npm --prefix mobile run format:check
 npm --prefix mobile test -- --ci
-(cd mobile && npx expo export --platform web)                                   # web build check
+EXPO_PUBLIC_API_URL=https://api.example.invalid npm --prefix mobile run export:web   # web build check
 node mobile/node_modules/prettier/bin/prettier.cjs --check --ignore-path .gitignore --ignore-path .prettierignore "**/*.{md,json,yml,yaml,css,mjs}" "!mobile/**"
 docker build -f backend/Dockerfile -t flowpilot-api:ci backend
 ```
 
 **A drift check failed?** A generated file is out of date: run the command shown in the step's error and commit the result. **Dependabot** ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly grouped update PRs for GitHub Actions, npm and NuGet. They run the same CI and are merged by a human. Expo-managed packages are upgraded only together, during an Expo SDK upgrade.
+
+## Deployment
+
+Every merge to `main` ships itself (continuous deployment), all on free tiers with no card on file. Decision: [ADR-0003](docs/adr/0003-deployment-and-delivery.md) · design: [`docs/features/phase0-deploy.md`](docs/features/phase0-deploy.md) · setup, rotation and rollback: [`docs/runbooks/deploy.md`](docs/runbooks/deploy.md).
+
+```
+merge → CI (backend · mobile · docker) → migrate (EF bundle → Neon) → deploy (Render hook, exact SHA) → verify (/health/version = SHA, /health/ready = 200)
+```
+
+| Piece    | Host             | How it ships                                                                    |
+| -------- | ---------------- | ------------------------------------------------------------------------------- |
+| API      | Render (Docker)  | the `deploy` job calls Render's deploy hook after migrating; auto-deploy is off |
+| Database | Neon (Postgres)  | the `deploy` job applies an EF Core migration bundle; never at app startup      |
+| Web      | Cloudflare Pages | Pages builds `main` itself (`npm run export:web`); every PR gets a preview URL  |
+
+The `deploy` job only gets its secrets from the GitHub `production` environment, which only `main` can use, so PR runs never see them. A deploy counts as done only when the API reports the merged commit, not just when it's up.

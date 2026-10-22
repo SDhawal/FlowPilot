@@ -45,6 +45,7 @@
     "web": "expo start --web",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "export:web": "node scripts/require-env.mjs EXPO_PUBLIC_API_URL && expo export --platform web",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",

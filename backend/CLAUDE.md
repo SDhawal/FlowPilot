@@ -41,6 +41,18 @@ Domain must not reference EF Core. Api must not contain business logic.
 - Local: `dotnet user-secrets` for `Gemini:ApiKey`, `ConnectionStrings:Default`, `Jwt:SigningKey`.
 - Production: environment variables on Render. Nothing secret in `appsettings*.json`.
 
+## Migrations & deployment (ADR-0003)
+
+- Migrations ship through the pipeline: the CI `deploy` job builds an EF migration bundle and applies it to Neon
+  **before** deploying the new code. Never call `Database.Migrate()` at startup.
+- EF tooling uses Infrastructure as both project and startup (`-p`/`-s backend/src/FlowPilot.Infrastructure`): it holds
+  the design-time factory and the EF Design package. Never edit an existing migration.
+- **Expand/contract:** every migration must work with the version currently live (the old code runs on the new schema
+  until the deploy finishes, or indefinitely if it fails). Add first, switch code over, remove in a later release.
+  No rename or drop in one step. Schema changes are forward-fixed, never rolled back.
+- Production runs behind Render's proxy: forwarded headers are on outside Development. `GET /health/version` reports
+  `RENDER_GIT_COMMIT`; the pipeline uses it to prove which commit is live.
+
 ## OpenAPI
 
 - Build emits `backend/openapi/flowpilot.json`; commit it. The mobile client is generated from it.
