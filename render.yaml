@@ -27,6 +27,6 @@ services:
         sync: false
       # Production web origin, then every Pages preview/branch subdomain of OUR project only.
       - key: Cors__AllowedOrigins__0
-        value: https://flowpilot.pages.dev
+        value: https://flowpilot-64c.pages.dev
       - key: Cors__AllowedOrigins__1
-        value: https://*.flowpilot.pages.dev
+        value: https://*.flowpilot-64c.pages.dev

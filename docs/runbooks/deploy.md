@@ -97,7 +97,7 @@ Do these in order. Each step needs something from the one before it. You (the hu
 
 4. Save. The first build **fails**, on purpose: `EXPO_PUBLIC_API_URL` isn't set yet, and the build refuses to ship a site pointing at localhost. You'll set it in step 1.4.
 5. **Settings → Builds → Preview deployments:** check whether builds run for pull requests from **forks**. If they do, restrict previews to branches of this repo before auth ships (spec §11).
-6. If the project name isn't `flowpilot`, update both `Cors__AllowedOrigins__*` values in `render.yaml` on your branch before step 1.3.
+6. Note the project's **`*.pages.dev` subdomain** from the first deployment URL. Cloudflare may add a suffix even when the name is free (ours: `flowpilot-64c.pages.dev`). Put that domain in both `Cors__AllowedOrigins__*` values in `render.yaml` (`https://<subdomain>.pages.dev` and `https://*.<subdomain>.pages.dev`). Otherwise the browser blocks every API call.
 
 ### 1.3 Render (API)
 
