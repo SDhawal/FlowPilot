@@ -40,13 +40,17 @@ render.yaml     Render Blueprint for the production API
 
 ## How we work
 
-1. Every feature starts as a GitHub issue with acceptance criteria.
+1. Every feature starts as a GitHub issue with acceptance criteria (`/issue-draft`; forms in `.github/ISSUE_TEMPLATE`).
 2. Use **plan mode** + the `architect` agent → `docs/features/<feature>.md`. A human approves it before code.
 3. Branch `feat/<short-name>`. Small commits, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `style:`, `ci:`).
 4. Backend first → `/gen-client` → frontend.
 5. `test-engineer` adds tests; `code-reviewer` reviews the diff; fix BLOCKERs before opening a PR.
-6. Never push or merge without the human. Never commit to `main` directly. A PR merges only when CI (`.github/workflows/ci.yml`) is green: required checks `backend`, `mobile`, `docker`.
+6. PR title and body come from `/pr-draft` (same headings as `.github/PULL_REQUEST_TEMPLATE.md`). Never push or merge without the human. Never commit to `main` directly. A PR merges only when CI (`.github/workflows/ci.yml`) is green: required checks `backend`, `mobile`, `docker`.
 7. Formatting is automatic: `.claude/hooks/format.mjs` formats every file an agent edits — backend `*.cs` via `dotnet format whitespace`, `mobile/` via its Prettier config + ESLint, and other Markdown/JSON/YAML via the root `.prettierrc.json`. Generated files (`backend/openapi/`, `package-lock.json`, `schema.d.ts`, EF migrations) are listed in `.prettierignore` and never reformatted.
+8. **Hands-on rule: the human runs the operational commands.** The main session gives each command with what it does, why, and what success and failure look like. The human runs it and shares the output, and the session interprets it. This covers Docker, `psql`/SQL, `dotnet ef` (migrations, bundles), `git` beyond read-only (branch, commit, push, merge), CI/CD triggers, dashboard changes (Render, Neon, Cloudflare, GitHub settings) and any install.
+   - The main session may run builds and tests (`dotnet build`, `dotnet test`, `npm` checks) and read-only inspection (`git status`/`log`/`diff`, reading files). It names each command it ran and what it was for.
+   - Subagents (`test-engineer`, `code-reviewer`, …) stay autonomous.
+9. **Debrief after every completed task:** what we built, why this way (and the alternative rejected), what broke and how we found it, interview angle (likely questions with one-line answers), concepts to revise. Give it in chat, and append it to the human's private learning log (`notes/learning-log.md`, excluded from git via `.git/info/exclude`) when that file exists.
 
 ## Definition of done
 
