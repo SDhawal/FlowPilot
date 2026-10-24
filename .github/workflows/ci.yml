@@ -242,6 +242,12 @@ jobs:
       # One self-contained executable that applies only the migrations Neon doesn't have yet.
       # Infrastructure is its own startup project: it has the design-time factory and the EF Design
       # package (PrivateAssets, so the Api doesn't get it).
+      # `migrations bundle` builds without restoring, and this runner starts with no obj/ folder.
+      # Restoring for linux-x64 also fetches the runtime pack the self-contained bundle needs.
+      - name: Restore (migration bundle)
+        if: steps.head.outputs.stale != 'true'
+        run: dotnet restore backend/src/FlowPilot.Infrastructure/FlowPilot.Infrastructure.csproj -r linux-x64
+
       - name: Build migration bundle
         if: steps.head.outputs.stale != 'true'
         run: >-
